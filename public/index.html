@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Штаб Управления Сектором</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f141c;
+            --panel-bg: #161f2b;
+            --accent-color: #ff3b30;
+            --text-color: #e3e9f0;
+            --border-color: #2c3b4e;
+            --success-color: #34c759;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        h2, h3 {
+            color: #fff;
+            margin-top: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input, select {
+            flex: 1;
+            background: #090d12;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        button {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.btn-sec {
+            background: #4a5d78;
+        }
+
+        button.btn-good {
+            background: var(--success-color);
+        }
+
+        .user-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .grid-balances {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .balance-item {
+            background: #090d12;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #1f2a3a;
+        }
+
+        .control-group {
+            margin-top: 15px;
+            padding: 10px;
+            background: #1c2837;
+            border-radius: 6px;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .card-tag {
+            display: inline-block;
+            background: #253549;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 3px;
+            font-size: 14px;
+        }
+
+        .status-active {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Центральный Пульт Тестирования</h2>
+    
+    <div class="search-box">
+        <input type="text" id="searchQuery" placeholder="Введите ID или позывной...">
+        <button onclick="searchUsers()">Поиск</button>
+    </div>
+
+    <div id="resultsContainer"></div>
+
+    <script>
+        const webapp = window.Telegram.WebApp;
+        webapp.ready();
+        webapp.expand();
+
+        async def_request = async (url, method = 'GET', body = null) => {
+            const config = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (body) config.body = JSON.stringify(body);
+            const response = await fetch(url, config);
+            return response.json();
+        };
+
+        async function searchUsers() {
+            const q = document.getElementById('searchQuery').value;
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = '⚡ Сканирование базы данных...';
+
+            try {
+                const users = await def_request(`/api/search?q=${encodeURIComponent(q)}`);
+                container.innerHTML = '';
+                
+                if (users.length === 0) {
+                    container.innerHTML = '❌ Командиры не обнаружены.';
+                    return;
+                }
+
+                users.forEach(user => {
+                    const card = document.createElement('div');
+                    card.className = 'user-card';
+                    card.innerHTML = `
+                        <h3>${user.nickname} (ID: ${user.id})</h3>
+                        <p><strong>Фракция:</strong> ${user.faction}</p>
+                        
+                        <div class="grid-balances">
+                            <div class="balance-item">💰 Кредиты: <strong>${user.credits}</strong></div>
+                            <div class="balance-item">⛏ Руда: <strong>${user.ore}</strong></div>
+                            <div class="balance-item">🛢 Нефть: <strong>${user.oil}</strong></div>
+                            <div class="balance-item">⭐ Звёзды: <strong>${user.stars}</strong></div>
+                        </div>
+
+                        <p>⏳ **Кулдаун радара:** ${user.cooldown_left > 0 ? `<span class="status-active">${Math.round(user.cooldown_left/60)} мин.</span>` : 'Готов к работе'}</p>
+                        <p>🚨 **Активный дрон:** ${user.drone_left > 0 ? `<span class="status-active">Да (${Math.round(user.drone_left/60)} мин.)</span>` : 'Нет дронов'}</p>
+                        
+                        <div class="control-group">
+                            <h4>Управление ресурсами</h4>
+                            <select id="res_type_${user.id}">
+                                <option value="credits">Кредиты</option>
+                                <option value="ore">Руда</option>
+                                <option value="oil">Нефть</option>
+                                <option value="stars">Звёзды</option>
+                            </select>
+                            <div class="flex-row">
+                                <input type="number" id="res_amt_${user.id}" placeholder="Количество" value="50">
+                                <button class="btn-good" onclick="modBalance(${user.id}, 1)">Начислить</button>
+                                <button onclick="modBalance(${user.id}, -1)">Списать</button>
+                            </div>
+                        </div>
+
+                        <div class="control-group">
+                            <h4>Управление чертежами арсенала</h4>
+                            <div id="inventory_${user.id}" style="margin-bottom: 10px;">
+                                ${user.inventory.map(c => `<span class="card-tag">${c} <span style="color:var(--accent-color);cursor:pointer;" onclick="manageCard(${user.id}, '${c}', 'take')">×</span></span>`).join('')}
+                            </div>
+                            <div class="flex-row">
+                                <input type="text" id="new_card_${user.id}" placeholder="Кодовое имя постройки (напр. bank)">
+                                <button class="btn-good" onclick="manageCard(${user.id}, document.getElementById('new_card_${user.id}').value, 'give')">Выдать</button>
+                            </div>
+                        </div>
+
+                        <div class="control-group">
+                            <h4>Статусы и Режимы ПВО</h4>
+                            <div class="flex-row">
+                                <button class="btn-sec" onclick="manageStatus(${user.id}, 'cooldown', 'clear')">⚡ Сбросить Кулдаун Радара</button>
+                                ${user.drone_left > 0 
+                                    ? `<button class="btn-good" onclick="manageStatus(${user.id}, 'drone', 'clear')">💥 Ликвидировать Дрона</button>`
+                                    : `<button onclick="manageStatus(${user.id}, 'drone', 'set')">🚨 Направить Дрона (2ч)</button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                container.innerHTML = '❌ Ошибка выполнения сетевого запроса.';
+            }
+        }
+
+        async function modBalance(userId, modifier) {
+            const type = document.getElementById(`res_type_${userId}`).value;
+            const amt = parseInt(document.getElementById(`res_amt_${userId}`).value) * modifier;
+            await def_request('/api/balance', 'POST', { id: userId, type: type, amount: amt });
+            webapp.HapticFeedback.notificationOccurred('success');
+            searchUsers();
+        }
+
+        async function manageCard(userId, cardName, action) {
+            if (!cardName) return;
+            await def_request('/api/card', 'POST', { id: userId, card_name: cardName, action: action });
+            webapp.HapticFeedback.notificationOccurred('success');
+            searchUsers();
+        }
+
+        async function manageStatus(userId, statusType, action) {
+            await def_request('/api/status', 'POST', { id: userId, status_type: statusType, action: action, minutes: 120 });
+            webapp.HapticFeedback.notificationOccurred('success');
+            searchUsers();
+        }
+    </script>
+</body>
+</html>
