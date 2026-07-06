@@ -138,13 +138,22 @@
         webapp.ready();
         webapp.expand();
 
-        async def_request = async (url, method = 'GET', body = null) => {
+        // АВТО-ПЕРЕХВАТ ТВОЕЙ ССЫЛКИ ИЗ ПАРАМЕТРОВ ОКНА
+        const urlParams = new URLSearchParams(window.location.search);
+        const BACKEND_URL = urlParams.get("backend") || "";
+
+        // ИСПРАВЛЕННЫЙ ЗАПРОС: теперь он склеивает адрес Render и эндпоинт
+        const def_request = async (url, method = 'GET', body = null) => {
             const config = {
                 method: method,
                 headers: { 'Content-Type': 'application/json' }
             };
             if (body) config.body = JSON.stringify(body);
-            const response = await fetch(url, config);
+            
+            // Если ссылка на бэк найдена в параметрах, шлем запрос туда, иначе оставляем относительный путь
+            const finalUrl = BACKEND_URL ? `${BACKEND_URL}${url}` : url;
+            
+            const response = await fetch(finalUrl, config);
             return response.json();
         };
 
@@ -157,7 +166,7 @@
                 const users = await def_request(`/api/search?q=${encodeURIComponent(q)}`);
                 container.innerHTML = '';
                 
-                if (users.length === 0) {
+                if (!users || users.length === 0) {
                     container.innerHTML = '❌ Командиры не обнаружены.';
                     return;
                 }
@@ -227,20 +236,20 @@
             const type = document.getElementById(`res_type_${userId}`).value;
             const amt = parseInt(document.getElementById(`res_amt_${userId}`).value) * modifier;
             await def_request('/api/balance', 'POST', { id: userId, type: type, amount: amt });
-            webapp.HapticFeedback.notificationOccurred('success');
+            if (webapp.HapticFeedback) webapp.HapticFeedback.notificationOccurred('success');
             searchUsers();
         }
 
         async function manageCard(userId, cardName, action) {
             if (!cardName) return;
             await def_request('/api/card', 'POST', { id: userId, card_name: cardName, action: action });
-            webapp.HapticFeedback.notificationOccurred('success');
+            if (webapp.HapticFeedback) webapp.HapticFeedback.notificationOccurred('success');
             searchUsers();
         }
 
         async function manageStatus(userId, statusType, action) {
             await def_request('/api/status', 'POST', { id: userId, status_type: statusType, action: action, minutes: 120 });
-            webapp.HapticFeedback.notificationOccurred('success');
+            if (webapp.HapticFeedback) webapp.HapticFeedback.notificationOccurred('success');
             searchUsers();
         }
     </script>
